@@ -13,10 +13,12 @@ import { LuMap, LuNavigation, LuTrophy } from "react-icons/lu";
 import { FiAlertTriangle } from "react-icons/fi";
 
 const REPORTS_ENDPOINT = "http://217.153.167.103:8002/reports/";
+const USERS_ENDPOINT = "http://217.153.167.103:8002/users/";
+const DEFAULT_USER_ID = 1;
 
 const statusStyles: Record<string, string> = {
-  positive: "bg-emerald-100 text-emerald-600",
-  negative: "bg-rose-100 text-rose-600",
+  positive: "bg-rose-100 text-rose-600",
+  negative: "bg-emerald-100 text-emerald-600",
   unverified: "bg-amber-100 text-amber-600",
 };
 
@@ -50,6 +52,14 @@ type UiReport = {
   dislikes: number;
 };
 
+type UserDto = {
+  id: number;
+  name: string;
+  surname: string;
+  email: string;
+  points: number;
+};
+
 const mapReportToUi = (report: ReportDto): UiReport => {
   const verificationKey = report.verified?.toLowerCase() ?? "unverified";
   return {
@@ -71,6 +81,13 @@ export default function DashboardPage() {
   const [reports, setReports] = useState<UiReport[]>([]);
   const [isLoadingReports, setIsLoadingReports] = useState(false);
   const [reportsError, setReportsError] = useState<string | null>(null);
+
+  // ---- NEW: user points state ----
+  const [userPoints, setUserPoints] = useState<number | null>(null);
+  const [isLoadingUser, setIsLoadingUser] = useState(false);
+  const [userError, setUserError] = useState<string | null>(null);
+  // (opcjonalnie możesz podstawiać inny ID z query / stanu aplikacji)
+  const userId = DEFAULT_USER_ID;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -103,9 +120,39 @@ export default function DashboardPage() {
       }
     };
 
+    const fetchUser = async () => {
+      try {
+        setIsLoadingUser(true);
+        setUserError(null);
+        const response = await fetch(`${USERS_ENDPOINT}${userId}`, {
+          headers: { accept: "application/json" },
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error(`Serwer (users) zwrócił kod ${response.status}`);
+        }
+
+        const data = (await response.json()) as UserDto;
+        setUserPoints(Number.isFinite(data.points as number) ? data.points : 0);
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        setUserError(
+          error instanceof Error
+            ? `Nie udało się pobrać punktów: ${error.message}`
+            : "Wystąpił nieoczekiwany błąd przy pobieraniu punktów."
+        );
+        setUserPoints(null);
+      } finally {
+        if (!controller.signal.aborted) setIsLoadingUser(false);
+      }
+    };
+
     fetchReports();
+    fetchUser();
+
     return () => controller.abort();
-  }, []);
+  }, [userId]);
 
   const reportsContent = useMemo(() => {
     if (isLoadingReports && reports.length === 0) {
@@ -226,7 +273,7 @@ export default function DashboardPage() {
                 Zgłoś problem
               </Link>
               <Link
-                href="/map"
+                href="/reports-map"
                 className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2 text-sm font-semibold text-slate-900"
               >
                 <LuMap />
@@ -290,7 +337,7 @@ export default function DashboardPage() {
                   Zobacz utrudnienia
                 </p>
                 <Link
-                  href="/map"
+                  href="/reports-map"
                   className="mt-3 inline-flex items-center gap-2 text-xs font-semibold text-sky-600"
                 >
                   Otwórz
@@ -317,15 +364,31 @@ export default function DashboardPage() {
         </section>
 
         <section className="grid gap-4 md:grid-cols-3">
+          {/* Karta z punktami pobranymi z /users/{id} */}
           <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-6 text-center">
             <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">
               Punkty za zgłoszenia
             </p>
-            <p className="mt-2 text-3xl font-semibold text-emerald-600">247</p>
+
+            {/* licznik + stany */}
+            {isLoadingUser ? (
+              <p className="mt-2 h-8 animate-pulse rounded-xl bg-emerald-100/70"></p>
+            ) : (
+              <p className="mt-2 text-3xl font-semibold text-emerald-600">
+                {userPoints ?? "--"}
+              </p>
+            )}
+
             <p className="mt-1 text-xs text-emerald-500">
               Twoja aktywność nagradza całą społeczność
             </p>
+            {userError && (
+              <p className="mt-2 text-xs text-emerald-700/80">
+                {userError}
+              </p>
+            )}
           </div>
+
           <div className="rounded-3xl border border-sky-200 bg-sky-50 p-6 text-center">
             <p className="text-xs font-semibold uppercase tracking-wide text-sky-600">
               Zgłoszenia w tym miesiącu
@@ -355,7 +418,7 @@ export default function DashboardPage() {
             Główna
           </Link>
           <Link
-            href="/map"
+            href="/reports-map"
             className="flex flex-col items-center gap-1 rounded-2xl px-4 py-3 text-xs font-semibold text-slate-500 transition hover:bg-slate-50"
           >
             <LuMap className="h-5 w-5" />
@@ -369,7 +432,7 @@ export default function DashboardPage() {
             Zgłoś
           </Link>
           <Link
-            href="/trip"
+            href="/dashboard"
             className="flex flex-col items-center gap-1 rounded-2xl px-4 py-3 text-xs font-semibold text-slate-500 transition hover:bg-slate-50"
           >
             <FaPlus className="h-4 w-4" />
