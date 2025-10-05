@@ -3,29 +3,35 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { FaArrowLeftLong, FaFilter, FaLayerGroup, FaPlus } from "react-icons/fa6";
-import { FaSearch } from "react-icons/fa";
+import { FaArrowLeftLong } from "react-icons/fa6";
 import { LuCheck, LuClock3 } from "react-icons/lu";
-import { FiAlertTriangle } from "react-icons/fi";
-import React from "react";
-import { PiHeadCircuitThin } from "react-icons/pi";
 import { CgMediaLive } from "react-icons/cg";
+import { PiHeadCircuitThin } from "react-icons/pi";
+import React from "react";
+import { FiAlertTriangle } from "react-icons/fi";
 
-
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams } from "next/navigation";
 
 const Polyline = dynamic(() => import("react-leaflet").then(mod => mod.Polyline), { ssr: false });
 const Tooltip = dynamic(() => import("react-leaflet").then(mod => mod.Tooltip), { ssr: false });
+const CircleMarker = dynamic(() => import("react-leaflet").then(mod => mod.CircleMarker), { ssr: false });
+const Popup = dynamic(() => import("react-leaflet").then(mod => mod.Popup), { ssr: false });
+
+const MapWithNoSSR = dynamic(() => import("@/app/components/Map"), {
+  ssr: false,
+});
+
+function formatTimestampToHHMM(timestamp: number): string {
+  const date = new Date(timestamp);
+  const hours = date.getHours().toString().padStart(2, '0');
+  const minutes = date.getMinutes().toString().padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
 
 
 import { LatLngExpression } from "leaflet";
 
-type LatLng = LatLngExpression; // usually [number, number]
-
-// Import mapy bez SSR (ważne dla bibliotek używających window)
-const MapWithNoSSR = dynamic(() => import("@/app/components/Map"), {
-  ssr: false,
-});
+type LatLng = LatLngExpression;
 
 interface Location {
   lat: number;
@@ -65,72 +71,126 @@ interface TransitApiResponse {
   steps?: Step[];
 }
 
-// Dane do legendy
-const legend = [
-  { label: "Poważne problemy", value: 3, tone: "text-rose-600" },
-  { label: "Średnie opóźnienia", value: 7, tone: "text-amber-500" },
-  { label: "Bez problemów", value: 24, tone: "text-emerald-500" },
-];
+interface Report {
+  id: number;
+  likes: number;
+  dislikes: number;
+  verified: string;
+  description: string;
+  lattidude: number;
+  longidute: number;
+  route_name: string;
+  creator_id: number;
+  timestamp: number;
+}
 
 export default function MapPage() {
-  const [search, setSearch] = useState("")
-
-  const searchParams = useSearchParams()
- 
-  const from = searchParams.get('from')
-  const to = searchParams.get('to')
+  const [search, setSearch] = useState("");
+  const searchParams = useSearchParams();
+  const from = searchParams.get("from");
+  const to = searchParams.get("to");
 
   const [steps, setSteps] = useState<Step[]>([]);
   const [routeData, setRouteData] = useState<TransitApiResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [votedReports, setVotedReports] = useState<Record<number, "like" | "dislike">>({});
+
+
+  // New: store reports by route name or step index
+  // e.g. reportsByLineName["Line 42"] = Report[]
+  const [reportsByLine, setReportsByLine] = useState<Record<string, Report[]>>({});
 
   useEffect(() => {
-  if (from && to) {
-    console.log("Fetching route from", from, "to", to);
-    setLoading(true);
-    fetch('http://217.153.167.103:8002/trip', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        origin: from,
-        destination: to,
-      }),
-    })
-      .then(async (res) => {
-        if (!res.ok) {
-          // Server returned an error, read text to understand response
-          const errorText = await res.text();
-          console.log("Server error:", res.status, errorText);
+    if (from && to) {
+      setLoading(true);
+      fetch("http://217.153.167.103:8002/trip", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ origin: from, destination: to }),
+      })
+        .then(async (res) => {
+          if (!res.ok) {
+            const errorText = await res.text();
+            console.log("Server error:", res.status, errorText);
+            setSteps([]);
+            setLoading(false);
+            return null;
+          }
+          return res.json() as Promise<TransitApiResponse>;
+        })
+        .then((data) => {
+          if (!data) {
+            setLoading(false);
+            return;
+          }
+          if (data.steps) {
+            console.log(data.steps)
+            setSteps(data.steps);
+            setRouteData(data);
+            // After steps are set, fetch reports for each transit step
+            data.steps.forEach((step) => {
+              if (step.travel_mode === "TRANSIT" && step.transit) {
+                const routeName = step.transit.line_name || step.transit.line_short_name;
+                if (routeName) {
+                  fetchReportsForLine(routeName);
+                }
+              }
+            });
+          } else {
+            setSteps([]);
+          }
+          setLoading(false);
+        })
+        .catch((error) => {
+          console.error("Error fetching route:", error);
           setSteps([]);
           setLoading(false);
-          return null; // Exit early
-        }
-        // Parse JSON only if response was OK
-        return res.json() as Promise<TransitApiResponse>;
-      })
-      .then((data) => {
-        console.log("Route data:", data);
-        if (!data) return; // Already handled error above
-        if (data.steps) {
-          console.log("Parsed steps:", data.steps);
-          setSteps(data.steps);
-          setRouteData(data);
-        } else {
-          setSteps([]);
-        }
-        setLoading(false);
-      })
-      .catch((error) => {
-        console.log("Error fetching route:", error);
-        setLoading(false);
-        setSteps([]);
-      });
-  }
-}, [from, to]);
+        });
+    }
+  }, [from, to]);
 
-  // Helper function to pick polyline color by step
+  const voteOnReport = async (reportId: number, action: "like" | "dislike") => {
+  try {
+    const res = await fetch(`http://217.153.167.103:8002/reports/${reportId}/vote`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action }),
+    });
+
+    if (!res.ok) {
+      console.warn("Failed to vote on report", reportId);
+      return;
+    }
+
+    // Optional: update UI
+    setVotedReports((prev) => ({ ...prev, [reportId]: action }));
+  } catch (error) {
+    console.error("Error voting on report", reportId, error);
+  }
+};
+
+
+  const fetchReportsForLine = async (routeName: string) => {
+    // avoid duplicate fetches
+    if (reportsByLine[routeName]) {
+      return;
+    }
+    try {
+      const res = await fetch(`http://217.153.167.103:8002/reports/route/${encodeURIComponent(routeName)}`);
+      if (!res.ok) {
+        console.warn("Failed to fetch reports for route", routeName, res.status);
+        return;
+      }
+      const reports: Report[] = await res.json();
+      setReportsByLine((prev) => ({
+        ...prev,
+        [routeName]: reports,
+      }));
+    } catch (err) {
+      console.error("Error fetching reports for line", routeName, err);
+    }
+  };
+
   const getColor = (step: Step): string => {
     if (step.travel_mode === "WALKING") return "green";
     if (step.travel_mode === "TRANSIT") {
@@ -143,76 +203,94 @@ export default function MapPage() {
 
   return (
     <div className="relative min-h-screen bg-[#f5fbff]">
-      {/* MAPA — najniżej */}
       <div className="absolute inset-0 z-0">
         <div className="h-full w-full">
           <MapWithNoSSR>
             {loading && <div>Loading route...</div>}
-            {steps.length > 0 &&
-          steps.map((step, idx) => {
-            const color = getColor(step);
+            {steps.map((step, idx) => {
+              const color = getColor(step);
+              const path = step.path;
+              const midpointIdx = Math.floor(path.length / 2);
+              const midpoint = path[midpointIdx];
 
-            // Find midpoint of path for placing label
-            const path = step.path;
-            const midpointIndex = Math.floor(path.length / 2);
-            const midpoint = path[midpointIndex];
+              return (
+                <React.Fragment key={idx}>
+                  <Polyline positions={step.path} color={color} weight={5} opacity={0.7}>
+                    {step.travel_mode === "TRANSIT" && step.transit && (
+                      <Tooltip
+                        direction="center"
+                        permanent
+                        interactive={false}
+                        opacity={1}
+                        className="custom-tooltip"
+                        sticky={false}
+                        offset={[0, 0]}
+                        key={`tooltip-${idx}`}
+                        position={midpoint}
+                      >
+                        <div
+                          style={{
+                            color,
+                            fontWeight: "bold",
+                            padding: "2px 6px",
+                            borderRadius: 4,
+                            backgroundColor: "rgba(255, 255, 255, 0.5)",
+                            border: `2px solid ${color}`,
+                            whiteSpace: "nowrap",
+                            fontSize: "0.6rem",
+                            userSelect: "none",
+                          }}
+                        >
+                          {step.instruction_text} [
+                          {step.transit.line_name
+                            ? step.transit.line_name
+                            : step.transit.line_short_name}
+                          ]
+                        </div>
+                      </Tooltip>
+                    )}
+                  </Polyline>
 
-            return (
-              <React.Fragment key={idx}>
-                <Polyline
-                  positions={step.path}
-                  color={color}
-                  weight={5}
-                  opacity={0.7}
-                >
+                  {step.travel_mode === "TRANSIT" && step.transit && (() => {
+                    const routeName = step.transit.line_name || step.transit.line_short_name;
+                    const reports = routeName ? reportsByLine[routeName] : undefined;
+                    if (!reports || reports.length === 0) return null;
 
-                {/* Show label only for transit steps with vehicle_type BUS or TRAM */}
-                {step.travel_mode == "TRANSIT" && step.transit && (
-                  <Tooltip
-                    direction="center"
-                    permanent
-                    interactive={false}
-                    opacity={1}
-                    className="custom-tooltip"
-                    sticky={false}
-                    offset={[0, 0]}
-                    key={`tooltip-${idx}`}
-                    // Tooltip must be anchored on a coordinate, so we use midpoint
-                    position={midpoint}
-                  >
-                    <div
-                      style={{
-                        color,
-                        fontWeight: "bold",
-                        padding: "2px 6px",
-                        borderRadius: 4,
-                        backgroundColor: "rgba(255, 255, 255, 0.5)",
-                        border: `2px solid ${color}`,
-                        whiteSpace: "nowrap",
-                        fontSize: "0.6rem",
-                        userSelect: "none",
-                      }}
-                    >
-                      {step.instruction_text} {"["}{step.transit.line_name ? step.transit.line_name : step.transit.line_short_name}{"]"}
-                    </div>
-                  </Tooltip>
-                )}
-                </Polyline>
-              </React.Fragment>
-            );
-          })}
-
+                    return reports.map((rep) => {
+                      const lat = rep.lattidude;
+                      const lng = rep.longidute;
+                      const pos: LatLng = [lat, lng];
+                      return (
+                        <CircleMarker
+                          center={pos}
+                          radius={8}
+                          pathOptions={{ color: "red", fillOpacity: 0.6 }}
+                          key={`report-${routeName}-${rep.id}`}
+                        >
+                          <Popup>
+                            <div className="text-xs">
+                              <strong>Report #{rep.id}</strong><br />
+                              {rep.description}<br />
+                              Likes: {rep.likes}, Dislikes: {rep.dislikes}<br />
+                              Verified: {rep.verified}<br />
+                              Timestamp: {new Date(rep.timestamp).toLocaleString()}
+                            </div>
+                          </Popup>
+                        </CircleMarker>
+                      );
+                    });
+                  })()}
+                </React.Fragment>
+              );
+            })}
           </MapWithNoSSR>
         </div>
       </div>
 
-      {/* DELIKATNY GRADIENT nad mapą, nieklikalny */}
       <div className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-br from-white/60 via-white/30 to-transparent" />
 
-      {/* WARSTWA UI — wrapper nie łapie klików, tylko same panele */}
       <div className="relative z-20 pointer-events-none flex min-h-screen flex-col gap-5 px-4 pb-4 pt-4 sm:px-6 lg:flex-row lg:items-start lg:gap-8">
-        {/* Lewy panel (klikalny) */}
-        <div className="pointer-events-auto flex w-full flex-col gap-4 rounded-[28px] bg-white/85 p-4 shadow-lg backdrop-blur md:max-w-md max-h-screen">
+        <div className="pointer-events-auto flex w-full flex-col gap-4 rounded-[28px] bg-white/85 p-4 shadow-lg backdrop-blur md:max-w-md max-h-screen overflow-auto">
           <div className="flex items-center justify-between">
             <Link
               href="/dashboard"
@@ -221,81 +299,137 @@ export default function MapPage() {
               <FaArrowLeftLong />
               Wróć
             </Link>
-            <div className="flex items-center gap-2 text-slate-500">
-              <button className="rounded-full border border-slate-200 bg-white p-2 shadow-sm transition hover:border-sky-300" aria-label="Filtry">
-                <FaFilter className="h-4 w-4" />
-              </button>
-              <button className="rounded-full border border-slate-200 bg-white p-2 shadow-sm transition hover:border-sky-300" aria-label="Warstwy">
-                <FaLayerGroup className="h-4 w-4" />
-              </button>
-            </div>
           </div>
 
-
           <div className="rounded-3xl border border-slate-100 bg-slate-50 p-4 text-sm text-slate-600">
-            {
-              steps.length === 0 && !loading && (<p>Brak trasy do wyswietlenia. Wyszukaj polaczenie w wyszukiwarce.</p>)
-            }
-            {
-              loading && (<p>Ladowanie trasy...</p>)
-            }
-            { steps.length > 0 && !loading && (
+            {steps.length === 0 && !loading && (
+              <p>Brak trasy do wyświetlenia. Wyszukaj połączenie w wyszukiwarce.</p>
+            )}
+            {loading && <p>Ładowanie trasy...</p>}
+            {steps.length > 0 && !loading && (
               <div className="space-y-2">
                 <h2 className="text-base font-semibold text-slate-800">Szczegóły trasy</h2>
                 <p className="text-xs text-slate-500">Liczba kroków: {steps.length}</p>
-                <div className="max-h-48 overflow-y-auto">
-                  {steps.map((step, idx) => (
-                    <div key={idx} className="mb-3 last:mb-0">
-                      <p className="text-sm font-semibold text-slate-700">Krok {idx + 1}:</p>
-                      <p className="text-sm" dangerouslySetInnerHTML={{ __html: step.instruction_html }} />
-                      <p className="text-xs text-slate-500">
-                        {step.distance_text}, {step.duration_text}{" "}
-                        {step.travel_mode === "TRANSIT" && step.transit ? `- ${step.transit.vehicle_type} ${step.transit.line_name ? step.transit.line_name : step.transit.line_short_name} w kierunku ${step.transit.headsign}` : ""}
-                      </p>
-                    </div>
-                  ))}
-              </div>
+                <div className="max-h-64 overflow-y-auto">
+                  {steps.map((step, idx) => {
+                    const routeName = step.transit?.line_name || step.transit?.line_short_name;
+                    const reports = routeName ? reportsByLine[routeName] : undefined;
+                    return (
+                      <div key={idx} className="mb-3 last:mb-0">
+                        <p className="text-sm font-semibold text-slate-700">Krok {idx + 1}:</p>
+                        <div className="flex flex-row gap-2 items-center">
+                          <div className="font-medium text-2xl">
+                            {step.transit && formatTimestampToHHMM(step.transit.departure_time)}
+                          </div>
+                          <div>
+                            <p
+                              className="text-sm"
+                              dangerouslySetInnerHTML={{ __html: step.instruction_html }}
+                            />
+                            <p className="text-xs text-slate-500">
+                              {step.distance_text}, {step.duration_text}{" "}
+                              {step.travel_mode === "TRANSIT" &&
+                              step.transit
+                                ? `- ${step.transit.vehicle_type} ${
+                                    step.transit.line_name
+                                      ? step.transit.line_name
+                                      : step.transit.line_short_name
+                                  } -> ${step.transit.headsign}`
+                                : ""}
+                            </p>
+                          </div>
+                        </div>
+                        
+
+                        {/* New: show reports under this step */}
+                        {reports && reports.length > 0 && (
+                          <div className="mt-2 space-y-1 rounded-lg bg-gray-50 p-2 border border-gray-200 text-xs">
+                            <p className="font-semibold">Zgłoszenia dla linii {routeName}:</p>
+                            {reports.map((rep) => {
+                            const userVote = votedReports[rep.id];
+
+                            return (
+                              <div
+                                key={rep.id}
+                                className="border-t border-gray-200 pt-1 first:pt-0"
+                              >
+                                <p>{rep.description}</p>
+                                <div className="text-gray-500 flex items-center gap-2">
+                                  <button
+                                    onClick={() => voteOnReport(rep.id, "like")}
+                                    disabled={!!userVote}
+                                    className={`text-xs px-2 py-1 rounded ${
+                                      userVote === "like" ? "bg-green-100 text-green-600" : "hover:bg-gray-100"
+                                    }`}
+                                  >
+                                    👍 {rep.likes}
+                                  </button>
+                                  <button
+                                    onClick={() => voteOnReport(rep.id, "dislike")}
+                                    disabled={!!userVote}
+                                    className={`text-xs px-2 py-1 rounded ${
+                                      userVote === "dislike" ? "bg-red-100 text-red-600" : "hover:bg-gray-100"
+                                    }`}
+                                  >
+                                    👎 {rep.dislikes}
+                                  </button>
+                                  <span>| Verified: {rep.verified}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
 
           <div className="rounded-3xl border border-slate-100 bg-slate-50 p-4 text-sm text-slate-600">
-
             <div className="space-y-2 text-xs text-slate-500">
-              {
-                routeData && routeData.delay_s > 0 && (
-                  <div>
-                    <div className="flex items-center gap-3">
-                      <LuClock3 className="text-amber-500" /> Opóźnienia
-                    </div>
-                    <div className="pl-2 "> 
-                      <div className="flex flex-row gap-2 items-center">
-                        <CgMediaLive />
-                        <p>{routeData.delay_s} sekund</p>
-                      </div>
-                      <div className="flex flex-row gap-2 items-center">
-                        <PiHeadCircuitThin />
-                        <p>Zazwyczaj na tej trasie występuje opóźnienie ok. {routeData.predicted_delay_s} sekund</p>
-                      </div>
-                      
-                      
-                    </div>
+              {routeData && routeData.delay_s > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 text-md font-semibold">
+                    <LuClock3 className="text-amber-500" /> Opóźnienia
                   </div>
-                )
-              }
-              {
-                routeData && routeData.delay_s === 0 && (
-                  <div className="flex items-center gap-3">
-                    <LuCheck className="text-emerald-500" /> Na czas
+                  <div className="mt-4">
+                    <div className="flex flex-row gap-2 items-center">
+                      <CgMediaLive />
+                      <p className="font-semibold">Live Delay</p>
+                    </div>
+                    <p className="mb-2">{routeData.delay_s} sekund</p>
+                    <div className="flex flex-row gap-2 items-center">
+                      <PiHeadCircuitThin />
+                      <p className="font-semibold">AI Prediction Delay</p>
+                    </div>
+                    <p>
+                        Zazwyczaj na tej trasie występuje opóźnienie ok.{" "}
+                        {routeData.predicted_delay_s} sekund
+                      </p>
                   </div>
-                )
-              }
+                </div>
+              )}
+              {routeData && routeData.delay_s === 0 && (
+                <div className="flex items-center gap-3">
+                  <LuCheck className="text-emerald-500" /> Na czas
+                </div>
+              )}
             </div>
           </div>
+          <div className="rounded-3xl border border-slate-100 bg-slate-50 p-4 py-2 text-sm text-slate-600">
+            <Link
+                href="/report"
+                className="inline-flex items-center gap-2 rounded-full bg-white/15 px-2 py-2 text-sm font-semibold text-red-600 transition hover:bg-white/25"
+              >
+                <FiAlertTriangle />
+                Zgłoś problem
+              </Link>
+          </div>
         </div>
-
-        {/* Tu można dodać kolejne panele — pamiętaj o pointer-events-auto na klikalnych */}
-        {/* <div className="pointer-events-auto ...">...</div> */}
       </div>
     </div>
   );
