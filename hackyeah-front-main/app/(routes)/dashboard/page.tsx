@@ -2,14 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import {
-  FaArrowRightLong,
-  FaBell,
-  FaPlus,
-  FaRegThumbsUp,
-  FaRegThumbsDown,
-} from "react-icons/fa6";
-import { LuMap, LuNavigation, LuTrophy } from "react-icons/lu";
+import { FaArrowRightLong, FaBell, FaPlus } from "react-icons/fa6";
+import {LuMap, LuNavigation, LuTrophy } from "react-icons/lu";
 import { FiAlertTriangle } from "react-icons/fi";
 
 const REPORTS_ENDPOINT = "http://217.153.167.103:8002/reports/";
@@ -46,8 +40,7 @@ type UiReport = {
     variant: string;
     label: string;
   };
-  likes: number;
-  dislikes: number;
+  meta: string;
 };
 
 const mapReportToUi = (report: ReportDto): UiReport => {
@@ -55,19 +48,15 @@ const mapReportToUi = (report: ReportDto): UiReport => {
   return {
     id: report.id,
     title: report.route_name?.trim() || "Nieznana linia",
-    description:
-      report.description?.trim() || "Brak opisu dla tego zgłoszenia.",
+    description: report.description?.trim() || "Brak opisu dla tego zg�oszenia.",
     route: report.route_name?.trim() || "Brak informacji",
     verification: {
       variant: statusStyles[verificationKey] || statusStyles.unverified,
       label: statusLabels[verificationKey] || statusLabels.unverified,
     },
-    likes: report.likes ?? 0,
-    dislikes: report.dislikes ?? 0,
+    meta: `?? ${report.likes} | ?? ${report.dislikes}`,
   };
 };
-
-type VoteType = "like" | "dislike";
 
 export default function DashboardPage() {
   const [reports, setReports] = useState<UiReport[]>([]);
@@ -82,23 +71,27 @@ export default function DashboardPage() {
         setIsLoadingReports(true);
         setReportsError(null);
         const response = await fetch(REPORTS_ENDPOINT, {
-          headers: { accept: "application/json" },
+          headers: {
+            accept: "application/json",
+          },
           signal: controller.signal,
         });
 
         if (!response.ok) {
-          throw new Error(`Serwer zwrócił kod ${response.status}`);
+          throw new Error(`Serwer zwr�ci� kod ${response.status}`);
         }
 
         const data = (await response.json()) as ReportDto[];
         const uiReports = data.slice(0, 6).map(mapReportToUi);
         setReports(uiReports);
       } catch (error) {
-        if (controller.signal.aborted) return;
+        if (controller.signal.aborted) {
+          return;
+        }
         setReportsError(
           error instanceof Error
-            ? `Nie udało się pobrać zgłoszeń: ${error.message}`
-            : "Wystąpił nieoczekiwany błąd przy pobieraniu zgłoszeń."
+            ? `Nie uda�o si� pobra� zg�osze�: ${error.message}`
+            : "Wyst�pi� nieoczekiwany b��d przy pobieraniu zg�osze�."
         );
       } finally {
         if (!controller.signal.aborted) {
@@ -108,49 +101,9 @@ export default function DashboardPage() {
     };
 
     fetchReports();
+
     return () => controller.abort();
   }, []);
-
-  const handleVote = async (id: number, type: VoteType) => {
-    // optymistyczna aktualizacja UI
-    setReports((prev) =>
-      prev.map((r) =>
-        r.id === id
-          ? {
-              ...r,
-              likes: type === "like" ? r.likes + 1 : r.likes,
-              dislikes: type === "dislike" ? r.dislikes + 1 : r.dislikes,
-            }
-          : r
-      )
-    );
-
-    // (opcjonalnie) wyślij do backendu — dopasuj ścieżki do swojego API
-    try {
-      const url =
-        type === "like"
-          ? `${REPORTS_ENDPOINT}${id}/like/`
-          : `${REPORTS_ENDPOINT}${id}/dislike/`;
-      await fetch(url, {
-        method: "POST",
-        headers: { accept: "application/json" },
-      });
-    } catch {
-      // cofnij w razie błędu
-      setReports((prev) =>
-        prev.map((r) =>
-          r.id === id
-            ? {
-                ...r,
-                likes: type === "like" ? Math.max(0, r.likes - 1) : r.likes,
-                dislikes:
-                  type === "dislike" ? Math.max(0, r.dislikes - 1) : r.dislikes,
-              }
-            : r
-        )
-      );
-    }
-  };
 
   const reportsContent = useMemo(() => {
     if (isLoadingReports && reports.length === 0) {
@@ -177,8 +130,7 @@ export default function DashboardPage() {
     if (reports.length === 0) {
       return (
         <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
-          Brak zgłoszeń w ostatnim czasie. Bądź pierwszą osobą, która doda
-          informację.
+          Brak zg�osze� w ostatnim czasie. B�d� pierwsz� osob�, kt�ra doda informacj�.
         </div>
       );
     }
@@ -191,41 +143,13 @@ export default function DashboardPage() {
             className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-5 py-4 text-sm"
           >
             <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-3 text-xs uppercase tracking-wide text-slate-500">
-                <span className="rounded-full bg-white px-3 py-1 text-slate-600">
-                  {report.title}
-                </span>
-
-                {/* Ikony + licznik */}
-                <div className="inline-flex items-center gap-2 text-slate-500">
-                  <button
-                    onClick={() => handleVote(report.id, "like")}
-                    className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-1 hover:bg-slate-100"
-                    aria-label="Polub"
-                  >
-                    <FaRegThumbsUp className="h-4 w-4" />
-                    <span className="text-slate-700">{report.likes}</span>
-                  </button>
-
-                  <button
-                    onClick={() => handleVote(report.id, "dislike")}
-                    className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-1 hover:bg-slate-100"
-                    aria-label="Nie lubię"
-                  >
-                    <FaRegThumbsDown className="h-4 w-4" />
-                    <span className="text-slate-700">{report.dislikes}</span>
-                  </button>
-                </div>
+              <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-slate-500">
+                <span className="rounded-full bg-white px-3 py-1 text-slate-600">{report.title}</span>
+                <span className="text-slate-400">{report.meta}</span>
               </div>
-
-              <p className="text-sm font-semibold text-slate-800">
-                {report.description}
-              </p>
+              <p className="text-sm font-semibold text-slate-800">{report.description}</p>
             </div>
-
-            <span
-              className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${report.verification.variant}`}
-            >
+            <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${report.verification.variant}`}>
               <FiAlertTriangle className="h-4 w-4" />
               {report.verification.label}
             </span>
@@ -243,10 +167,8 @@ export default function DashboardPage() {
             <span className="text-lg font-bold">TT</span>
           </div>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
-              TransitTracker
-            </p>
-            <h1 className="text-xl font-semibold">Dashboard pasażera</h1>
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">TransitTracker</p>
+            <h1 className="text-xl font-semibold">Dashboard pasazera</h1>
           </div>
         </div>
         <div className="flex items-center gap-4 text-slate-500">
@@ -261,16 +183,9 @@ export default function DashboardPage() {
         <section className="rounded-[36px] bg-gradient-to-r from-cyan-500 via-sky-600 to-emerald-400 p-8 text-white shadow-xl">
           <div className="flex flex-col gap-6">
             <div className="flex flex-col gap-2">
-              <span className="text-xs font-semibold uppercase tracking-[0.3em] text-white/70">
-                Witaj z powrotem!
-              </span>
-              <h2 className="text-3xl font-semibold">
-                Sprawdź aktualne informacje o transporcie publicznym
-              </h2>
-              <p className="text-sm text-white/80">
-                Zgłoś utrudnienia, otwórz mapę realtime lub znajdź najlepsze
-                połączenie.
-              </p>
+              <span className="text-xs font-semibold uppercase tracking-[0.3em] text-white/70">Witaj z powrotem!</span>
+              <h2 className="text-3xl font-semibold">Sprawdz aktualne informacje o transporcie publicznym</h2>
+              <p className="text-sm text-white/80">Zglos utrudnienia, otworz mape realtime lub znajdz najlepsze polaczenie.</p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <Link
@@ -278,7 +193,7 @@ export default function DashboardPage() {
                 className="inline-flex items-center gap-2 rounded-full bg-white/15 px-5 py-2 text-sm font-semibold text-white transition hover:bg-white/25"
               >
                 <FiAlertTriangle />
-                Zgłoś problem
+                Zglos problem
               </Link>
               <Link
                 href="/map"
@@ -294,13 +209,13 @@ export default function DashboardPage() {
         <section className="rounded-[32px] border border-slate-100 bg-white p-8 shadow-sm">
           <div className="grid gap-4 md:grid-cols-[1.3fr_1fr]">
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Sprawdź połączenie</h3>
-              <form className="space-y-4 text-sm" onSubmit={(e) => e.preventDefault()}>
+              <h3 className="text-lg font-semibold">Sprawdz polaczenie</h3>
+              <form className="space-y-4 text-sm">
                 <div className="flex items-center gap-4 rounded-3xl border border-slate-200 bg-slate-50 px-5 py-3">
                   <LuNavigation className="text-slate-400" />
                   <input
                     type="text"
-                    placeholder="np. Nowa Huta Centrum, Rynek Główny..."
+                    placeholder="np. Nowa Huta Centrum, Rynek Glowny..."
                     className="w-full bg-transparent text-slate-700 outline-none"
                   />
                 </div>
@@ -308,7 +223,7 @@ export default function DashboardPage() {
                   <LuNavigation className="text-slate-400" />
                   <input
                     type="text"
-                    placeholder="np. Bronowice, Dworzec Główny..."
+                    placeholder="np. Bronowice, Dworzec Glowny..."
                     className="w-full bg-transparent text-slate-700 outline-none"
                   />
                 </div>
@@ -316,37 +231,25 @@ export default function DashboardPage() {
                   type="submit"
                   className="inline-flex w-full items-center justify-center gap-2 rounded-3xl bg-gradient-to-r from-sky-500 to-emerald-400 px-6 py-3 text-sm font-semibold text-white shadow-sm"
                 >
-                  Znajdź połączenie
+                  Znajdz polaczenie
                   <FaArrowRightLong />
                 </button>
               </form>
             </div>
             <div className="space-y-4 text-sm">
               <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5">
-                <h4 className="text-sm font-semibold text-slate-700">
-                  Zgłoś problem
-                </h4>
-                <p className="mt-1 text-xs text-slate-500">
-                  Opóźnienia, awarie, korki
-                </p>
-                <Link
-                  href="/report"
-                  className="mt-3 inline-flex items-center gap-2 text-xs font-semibold text-sky-600"
-                >
-                  Przejdź
+                <h4 className="text-sm font-semibold text-slate-700">Zglos problem</h4>
+                <p className="mt-1 text-xs text-slate-500">Opoznienia, awarie, korki</p>
+                <Link href="/report" className="mt-3 inline-flex items-center gap-2 text-xs font-semibold text-sky-600">
+                  Przejdz
                   <FaArrowRightLong />
                 </Link>
               </div>
               <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5">
                 <h4 className="text-sm font-semibold text-slate-700">Mapa</h4>
-                <p className="mt-1 text-xs text-slate-500">
-                  Zobacz utrudnienia
-                </p>
-                <Link
-                  href="/map"
-                  className="mt-3 inline-flex items-center gap-2 text-xs font-semibold text-sky-600"
-                >
-                  Otwórz
+                <p className="mt-1 text-xs text-slate-500">Zobacz utrudnienia</p>
+                <Link href="/map" className="mt-3 inline-flex items-center gap-2 text-xs font-semibold text-sky-600">
+                  Otworz
                   <FaArrowRightLong />
                 </Link>
               </div>
@@ -357,10 +260,8 @@ export default function DashboardPage() {
         <section className="rounded-[32px] border border-slate-100 bg-white p-8 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-semibold">Najnowsze zgłoszenia</h3>
-              <p className="text-sm text-slate-500">
-                Zobacz co dzieje się na trasach obserwowanych przez społeczność.
-              </p>
+              <h3 className="text-lg font-semibold">Najnowsze zgloszenia</h3>
+              <p className="text-sm text-slate-500">Zobacz co dzieje sie na trasach obserwowanych przez spolecznosc.</p>
             </div>
             <Link href="/trip" className="text-sm font-semibold text-sky-600">
               Zobacz wszystkie
@@ -371,60 +272,38 @@ export default function DashboardPage() {
 
         <section className="grid gap-4 md:grid-cols-3">
           <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-6 text-center">
-            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">
-              Punkty za zgłoszenia
-            </p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">Punkty za zgloszenia</p>
             <p className="mt-2 text-3xl font-semibold text-emerald-600">247</p>
-            <p className="mt-1 text-xs text-emerald-500">
-              Twoja aktywność nagradza całą społeczność
-            </p>
+            <p className="mt-1 text-xs text-emerald-500">Twoja aktywnosc nagradza cala spolecznosc</p>
           </div>
           <div className="rounded-3xl border border-sky-200 bg-sky-50 p-6 text-center">
-            <p className="text-xs font-semibold uppercase tracking-wide text-sky-600">
-              Zgłoszenia w tym miesiącu
-            </p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-sky-600">Zgloszenia w tym miesiacu</p>
             <p className="mt-2 text-3xl font-semibold text-sky-600">18</p>
-            <p className="mt-1 text-xs text-sky-500">
-              3 potwierdzone przez dyspozytorów
-            </p>
+            <p className="mt-1 text-xs text-sky-500">3 potwierdzone przez dyspozytorow</p>
           </div>
           <div className="rounded-3xl border border-slate-200 bg-white p-6 text-center">
             <p className="flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
               <LuTrophy />
               Misja dnia
             </p>
-            <p className="mt-2 text-sm text-slate-600">
-              Dodaj zdjęcie do zgłoszenia aby zdobyć +15 punktów.
-            </p>
+            <p className="mt-2 text-sm text-slate-600">Dodaj zdjecie do zgloszenia aby zdobyc +15 punktow.</p>
           </div>
         </section>
 
         <nav className="mt-4 grid gap-3 rounded-[28px] border border-slate-100 bg-white p-3 shadow-sm sm:grid-cols-4">
-          <Link
-            href="/dashboard"
-            className="flex flex-col items-center gap-1 rounded-2xl bg-sky-50 px-4 py-3 text-xs font-semibold text-sky-600"
-          >
+          <Link href="/dashboard" className="flex flex-col items-center gap-1 rounded-2xl bg-sky-50 px-4 py-3 text-xs font-semibold text-sky-600">
             <LuNavigation className="h-5 w-5" />
-            Główna
+            Glowna
           </Link>
-          <Link
-            href="/map"
-            className="flex flex-col items-center gap-1 rounded-2xl px-4 py-3 text-xs font-semibold text-slate-500 transition hover:bg-slate-50"
-          >
+          <Link href="/map" className="flex flex-col items-center gap-1 rounded-2xl px-4 py-3 text-xs font-semibold text-slate-500 transition hover:bg-slate-50">
             <LuMap className="h-5 w-5" />
             Mapa
           </Link>
-          <Link
-            href="/report"
-            className="flex flex-col items-center gap-1 rounded-2xl px-4 py-3 text-xs font-semibold text-slate-500 transition hover:bg-slate-50"
-          >
+          <Link href="/report" className="flex flex-col items-center gap-1 rounded-2xl px-4 py-3 text-xs font-semibold text-slate-500 transition hover:bg-slate-50">
             <FiAlertTriangle className="h-5 w-5" />
-            Zgłoś
+            Zglos
           </Link>
-          <Link
-            href="/trip"
-            className="flex flex-col items-center gap-1 rounded-2xl px-4 py-3 text-xs font-semibold text-slate-500 transition hover:bg-slate-50"
-          >
+          <Link href="/trip" className="flex flex-col items-center gap-1 rounded-2xl px-4 py-3 text-xs font-semibold text-slate-500 transition hover:bg-slate-50">
             <FaPlus className="h-4 w-4" />
             Ustawienia
           </Link>
