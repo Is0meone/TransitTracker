@@ -363,7 +363,7 @@ export default function DashboardPage() {
             <div className="relative rounded-[28px] border border-slate-100 bg-white/90 p-3 backdrop-blur">
               <ChatBox
                 className="rounded-[22px]"
-                directAgentUrl="http://localhost:5050/chat"
+                directAgentUrl="http://217.153.167.103:5050/chat"
                 title="Zapytaj asystenta AI"
                 placeholder="Np. „Rozpisz mi krok po kroku drogę z Tauron Areny do lotniska w Krakowie…”"
               />

@@ -12,7 +12,7 @@ type Message = {
 
 type ChatBoxProps = {
   /** Jeśli zostawisz pusty, użyje /api/chat (proxy) */
-  directAgentUrl?: "http://localhost:5050/chat"; // np. "http://localhost:5050/chat"
+  directAgentUrl?: "http://217.153.167.103:5050/chat"; // np. "http://localhost:5050/chat"
   title?: string;
   placeholder?: string;
   className?: string;
