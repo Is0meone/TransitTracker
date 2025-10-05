@@ -431,6 +431,8 @@ export default function DashboardPage() {
             <FiAlertTriangle className="h-5 w-5" />
             Zgłoś
           </Link>
+            <FaPlus className="h-4 w-4" />
+            Ustawienia
         </nav>
       </main>
     </div>
