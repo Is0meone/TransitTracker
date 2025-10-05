@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { FaArrowLeftLong, FaPlus, FaRegBell } from "react-icons/fa6";
-import { LuCircleCheck, LuClock3, LuUploadCloud } from "react-icons/lu";
+import { LuCircleCheck, LuClock3 } from "react-icons/lu";
+import { RiUploadCloud2Line } from "react-icons/ri";
 
 const connections = [
   {
@@ -109,7 +110,7 @@ export default function DispatcherPage() {
               <div className="rounded-2xl bg-white/10 p-4">
                 <div className="text-xs uppercase tracking-wide text-slate-400">Status integracji</div>
                 <p className="mt-2 flex items-center gap-2 text-sm font-semibold text-white">
-                  <LuUploadCloud />
+                  <RiUploadCloud2Line />
                   Ostatnia synchronizacja 2 min temu
                 </p>
               </div>

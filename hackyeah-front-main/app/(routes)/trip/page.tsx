@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { FaArrowLeftLong, FaArrowRightLong } from "react-icons/fa6";
-import { LuAlertTriangle, LuBus, LuInfo, LuNavigation, LuTramFront } from "react-icons/lu";
-
+import { LuBus, LuInfo, LuNavigation, LuTramFront } from "react-icons/lu";
+import { FiAlertTriangle } from "react-icons/fi";
 const suggestedRoutes = [
   {
     id: "primary",
@@ -59,8 +59,8 @@ export default function TripPlannerPage() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Twoja trasa</p>
-                  <h2 className="text-xl font-semibold text-slate-800">Nowa Huta Centrum -> Rynek Glowny</h2>
-                  <p>3 opcje podrozy • MPK Krakow</p>
+                  <h2 className="text-xl font-semibold text-slate-800">Nowa Huta Centrum - Rynek Glowny</h2>
+                  <p>3 opcje podrozy ï¿½ MPK Krakow</p>
                 </div>
                 <span className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-semibold text-slate-600">
                   <LuTramFront />
@@ -81,8 +81,8 @@ export default function TripPlannerPage() {
 
           <div className="rounded-[32px] border border-amber-100 bg-amber-50 p-6 text-sm text-amber-700">
             <div className="flex items-start gap-3">
-              <LuAlertTriangle className="mt-1" />
-              <p>Na niektorych trasach wystepuja opoznienia. Sprawdz szczegoly ponizej i rozwaz alternatywne opcje.</p>
+              <FiAlertTriangle className="mt-1" />
+              <p>Na niektÃ³rych trasach wystepuja opoznienia. Sprawdz szczegoly ponizej i rozwaz alternatywne opcje.</p>
             </div>
           </div>
 

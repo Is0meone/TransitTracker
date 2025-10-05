@@ -80,12 +80,6 @@ export default function MapPage() {
           </div>
 
           <div className="rounded-3xl border border-slate-100 bg-slate-50 p-4 text-sm text-slate-600">
-            <div className="flex items-center justify-between">
-              <button className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-sky-500 to-emerald-400 px-3 py-1.5 text-xs font-semibold text-white shadow">
-                <FaPlus /> Dodaj warstwę
-              </button>
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Legenda</span>
-            </div>
 
             <div className="mt-4 space-y-2 text-xs text-slate-500">
               <div className="flex items-center gap-3">

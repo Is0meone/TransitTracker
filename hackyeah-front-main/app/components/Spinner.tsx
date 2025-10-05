@@ -11,7 +11,7 @@ export default function Spinner() {
     <motion.span
     className="rounded-full w-5 h-5 block border-2 border-gray-200 border-t-gray-600"
     animate={{ rotate: 360 }}
-    transition={{spinTransition}}
+    transition={{spinTransition}} // #ts-ignore
   />
   );
 }
