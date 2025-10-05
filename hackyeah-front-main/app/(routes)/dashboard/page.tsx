@@ -11,6 +11,7 @@ import {
 } from "react-icons/fa6";
 import { LuMap, LuNavigation, LuTrophy } from "react-icons/lu";
 import { FiAlertTriangle } from "react-icons/fi";
+import ChatBox from "@/app/components/ChatBox";
 
 const REPORTS_ENDPOINT = "http://217.153.167.103:8002/reports/";
 const USERS_ENDPOINT = "http://217.153.167.103:8002/users/";
@@ -82,11 +83,10 @@ export default function DashboardPage() {
   const [isLoadingReports, setIsLoadingReports] = useState(false);
   const [reportsError, setReportsError] = useState<string | null>(null);
 
-  // ---- NEW: user points state ----
   const [userPoints, setUserPoints] = useState<number | null>(null);
   const [isLoadingUser, setIsLoadingUser] = useState(false);
   const [userError, setUserError] = useState<string | null>(null);
-  // (opcjonalnie możesz podstawiać inny ID z query / stanu aplikacji)
+
   const userId = DEFAULT_USER_ID;
 
   useEffect(() => {
@@ -197,7 +197,6 @@ export default function DashboardPage() {
                   {report.title}
                 </span>
 
-                {/* Same ikony + licznik, bez klikania */}
                 <div className="inline-flex items-center gap-4 text-slate-500">
                   <span className="inline-flex items-center gap-1">
                     <FaRegThumbsUp className="h-4 w-4" />
@@ -250,6 +249,7 @@ export default function DashboardPage() {
       </header>
 
       <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 pb-12">
+        {/* Hero */}
         <section className="rounded-[36px] bg-gradient-to-r from-cyan-500 via-sky-600 to-emerald-400 p-8 text-white shadow-xl">
           <div className="flex flex-col gap-6">
             <div className="flex flex-col gap-2">
@@ -283,10 +283,11 @@ export default function DashboardPage() {
           </div>
         </section>
 
+        {/* Wyszukiwarka połączeń + karta skrótów */}
         <section className="rounded-[32px] border border-slate-100 bg-white p-8 shadow-sm">
           <div className="grid gap-4 md:grid-cols-[1.3fr_1fr]">
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Sprawdz polaczenie</h3>
+              <h3 className="text-lg font-semibold">Sprawdź połączenie</h3>
               <form className="space-y-4 text-sm" method="GET" action="/map">
                 <div className="flex items-center gap-4 rounded-3xl border border-slate-200 bg-slate-50 px-5 py-3">
                   <LuNavigation className="text-slate-400" />
@@ -317,12 +318,8 @@ export default function DashboardPage() {
             </div>
             <div className="space-y-4 text-sm">
               <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5">
-                <h4 className="text-sm font-semibold text-slate-700">
-                  Zgłoś problem
-                </h4>
-                <p className="mt-1 text-xs text-slate-500">
-                  Opóźnienia, awarie, korki
-                </p>
+                <h4 className="text-sm font-semibold text-slate-700">Zgłoś problem</h4>
+                <p className="mt-1 text-xs text-slate-500">Opóźnienia, awarie, korki</p>
                 <Link
                   href="/report"
                   className="mt-3 inline-flex items-center gap-2 text-xs font-semibold text-sky-600"
@@ -333,9 +330,7 @@ export default function DashboardPage() {
               </div>
               <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5">
                 <h4 className="text-sm font-semibold text-slate-700">Mapa</h4>
-                <p className="mt-1 text-xs text-slate-500">
-                  Zobacz utrudnienia
-                </p>
+                <p className="mt-1 text-xs text-slate-500">Zobacz utrudnienia</p>
                 <Link
                   href="/reports-map"
                   className="mt-3 inline-flex items-center gap-2 text-xs font-semibold text-sky-600"
@@ -348,6 +343,35 @@ export default function DashboardPage() {
           </div>
         </section>
 
+        {/* CHAT — pełnowymiarowe okno z dopracowaną oprawą */}
+        <section className="rounded-[32px] border border-slate-100 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-semibold">Chat z asystentem</h3>
+              <p className="text-sm text-slate-500">
+                Pytaj o trasy, opóźnienia i przesiadki. Enter = wyślij, Shift+Enter = nowa linia.
+              </p>
+            </div>
+            <div className="rounded-full bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600">
+              Live • Połączono z&nbsp;<span className="text-sky-600">localhost:5050</span>
+            </div>
+          </div>
+
+          {/* Dekoracyjny gradientowy border wokół ChatBox */}
+          <div className="relative">
+            <div className="pointer-events-none absolute inset-0 rounded-[28px] bg-gradient-to-r from-sky-200 via-cyan-200 to-emerald-200 opacity-60 blur-md" />
+            <div className="relative rounded-[28px] border border-slate-100 bg-white/90 p-3 backdrop-blur">
+              <ChatBox
+                className="rounded-[22px]"
+                directAgentUrl="http://localhost:5050/chat"
+                title="Zapytaj asystenta AI"
+                placeholder="Np. „Rozpisz mi krok po kroku drogę z Tauron Areny do lotniska w Krakowie…”"
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* Zgłoszenia */}
         <section className="rounded-[32px] border border-slate-100 bg-white p-8 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
             <div>
@@ -363,16 +387,15 @@ export default function DashboardPage() {
           {reportsContent}
         </section>
 
+        {/* Karty podsumowań */}
         <section className="grid gap-4 md:grid-cols-3">
-          {/* Karta z punktami pobranymi z /users/{id} */}
           <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-6 text-center">
             <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">
               Punkty za zgłoszenia
             </p>
 
-            {/* licznik + stany */}
             {isLoadingUser ? (
-              <p className="mt-2 h-8 animate-pulse rounded-xl bg-emerald-100/70"></p>
+              <p className="mt-2 h-8 animate-pulse rounded-xl bg-emerald-100/70" />
             ) : (
               <p className="mt-2 text-3xl font-semibold text-emerald-600">
                 {userPoints ?? "--"}
@@ -383,9 +406,7 @@ export default function DashboardPage() {
               Twoja aktywność nagradza całą społeczność
             </p>
             {userError && (
-              <p className="mt-2 text-xs text-emerald-700/80">
-                {userError}
-              </p>
+              <p className="mt-2 text-xs text-emerald-700/80">{userError}</p>
             )}
           </div>
 
@@ -398,6 +419,7 @@ export default function DashboardPage() {
               3 potwierdzone przez dyspozytorów
             </p>
           </div>
+
           <div className="rounded-3xl border border-slate-200 bg-white p-6 text-center">
             <p className="flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
               <LuTrophy />
@@ -409,6 +431,7 @@ export default function DashboardPage() {
           </div>
         </section>
 
+        {/* Nawigacja dolna */}
         <nav className="mt-4 grid gap-3 rounded-[28px] border border-slate-100 bg-white p-3 shadow-sm sm:grid-cols-4">
           <Link
             href="/dashboard"
