@@ -431,8 +431,13 @@ export default function DashboardPage() {
             <FiAlertTriangle className="h-5 w-5" />
             Zgłoś
           </Link>
+          <Link
+            href="/dashboard"
+            className="flex flex-col items-center gap-1 rounded-2xl px-4 py-3 text-xs font-semibold text-slate-500 transition hover:bg-slate-50"
+          >
             <FaPlus className="h-4 w-4" />
             Ustawienia
+          </Link>
         </nav>
       </main>
     </div>
