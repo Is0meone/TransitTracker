@@ -12,6 +12,7 @@ import type { LatLngExpression } from "leaflet";
 
 const CircleMarker = dynamic(() => import("react-leaflet").then(m => m.CircleMarker), { ssr: false });
 const Popup        = dynamic(() => import("react-leaflet").then(m => m.Popup),        { ssr: false });
+const MapWithNoSSR = dynamic(() => import("@/app/components/Map"), { ssr: false });
 
 type Verification = "positive" | "unverified" | "negative";
 
@@ -21,8 +22,8 @@ interface Report {
   dislikes: number;
   verified: Verification;
   description: string;
-  lattidude: number;  // backend literówka
-  longidute: number;  // backend literówka
+  lattidude: number;  // literówka z backendu
+  longidute: number;  // literówka z backendu
   route_name: string;
   creator_id: number;
   timestamp?: number;
@@ -32,17 +33,21 @@ const API_BASE = "http://217.153.167.103:8002";
 
 const statusColor = (v: Verification) => {
   switch (v) {
-    case "positive":   return { stroke: "#ef4444", fill: "#ef4444" }; // czerwony: potwierdzony problem
-    case "unverified": return { stroke: "#f59e0b", fill: "#f59e0b" }; // bursztyn: niezweryfikowane
-    case "negative":   return { stroke: "#10b981", fill: "#10b981" }; // zielony: odwołane/OK
+    case "positive":   return { stroke: "#ef4444", fill: "#ef4444" };
+    case "unverified": return { stroke: "#f59e0b", fill: "#f59e0b" };
+    case "negative":   return { stroke: "#10b981", fill: "#10b981" };
     default:           return { stroke: "#64748b", fill: "#94a3b8" };
   }
 };
 
 const formatTime = (unix?: number) =>
-  typeof unix === "number"
-    ? new Date(unix * 1000).toLocaleString()
-    : "—";
+  typeof unix === "number" ? new Date(unix * 1000).toLocaleString() : "—";
+
+const labelFor: Record<Verification, { title: string; tone: string; dot: string; badge: string }> = {
+  positive:   { title: "Potwierdzone",              tone: "text-rose-600",    dot: "bg-rose-500",    badge: "bg-rose-50 text-rose-700 border-rose-200" },
+  unverified: { title: "Oczekuje na potwierdzenie", tone: "text-amber-500",   dot: "bg-amber-500",   badge: "bg-amber-50 text-amber-700 border-amber-200" },
+  negative:   { title: "Odrzucone",                 tone: "text-emerald-500", dot: "bg-emerald-500", badge: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+};
 
 export default function MapPage() {
   const [search, setSearch] = useState("");
@@ -50,20 +55,18 @@ export default function MapPage() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [activeCategory, setActiveCategory] = useState<Verification | null>(null);
 
-  // 1) Pobranie listy raportów
+  // pobieranie
   useEffect(() => {
     const load = async () => {
-      setLoading(true);
-      setErr(null);
+      setLoading(true); setErr(null);
       try {
         const res = await fetch(`${API_BASE}/reports/`, { method: "GET" });
-        if (!res.ok) {
-          throw new Error(`${res.status} ${res.statusText}`);
-        }
+        if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
         const data = (await res.json()) as Report[];
         setReports(Array.isArray(data) ? data : []);
-      } catch (e: any) {
+      } catch (e) {
         console.error(e);
         setErr("Nie udało się pobrać raportów.");
       } finally {
@@ -73,7 +76,7 @@ export default function MapPage() {
     load();
   }, []);
 
-  // 2) Filtrowanie po wyszukiwarce (po nazwie linii i opisie)
+  // wyszukiwarka
   const visibleReports = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return reports;
@@ -83,19 +86,89 @@ export default function MapPage() {
     );
   }, [reports, search]);
 
-  // 3) Liczniki do legendy (dynamicznie z danych)
+  // liczniki
   const counters = useMemo(() => {
-    const severe   = reports.filter(r => r.verified === "positive").length;
-    const medium   = reports.filter(r => r.verified === "unverified").length;
-    const healthy  = reports.filter(r => r.verified === "negative").length;
+    const severe  = reports.filter(r => r.verified === "positive").length;
+    const medium  = reports.filter(r => r.verified === "unverified").length;
+    const healthy = reports.filter(r => r.verified === "negative").length;
     return { severe, medium, healthy };
   }, [reports]);
 
-  // 4) Detale wybranego raportu (opcjonalne: dogrywka po id)
   const selectedReport = useMemo(
     () => (selectedId ? reports.find(r => r.id === selectedId) ?? null : null),
     [selectedId, reports]
   );
+
+  // konfiguracja trzech boxów + ich liczników
+  const boxes: Array<{ key: Verification; count: number; ring: string; ringOff: string }> = useMemo(() => ([
+    { key: "positive",   count: counters.severe,  ring: "border-rose-300 ring-2 ring-rose-100",       ringOff: "border-white hover:border-slate-200" },
+    { key: "unverified", count: counters.medium,  ring: "border-amber-300 ring-2 ring-amber-100",     ringOff: "border-white hover:border-slate-200" },
+    { key: "negative",   count: counters.healthy, ring: "border-emerald-300 ring-2 ring-emerald-100", ringOff: "border-white hover:border-slate-200" },
+  ]), [counters]);
+
+  // raporty dla danej kategorii
+  const reportsFor = (cat: Verification) =>
+    reports
+      .filter(r => r.verified === cat)
+      .sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0));
+
+  // widok listy dla danej kategorii
+  const CategoryList = ({ cat }: { cat: Verification }) => {
+    const list = reportsFor(cat);
+    return (
+      <div className="mt-4">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-slate-700">
+            {labelFor[cat].title} — {list.length}
+          </h3>
+        </div>
+
+        <ul className="space-y-3">
+          {list.map((r) => {
+            const isActive = selectedId === r.id;
+            return (
+              <li
+                key={r.id}
+                className={`rounded-2xl border bg-white/90 p-3 shadow-sm transition hover:border-slate-200 ${
+                  isActive ? "ring-2 ring-sky-200" : "border-slate-100"
+                }`}
+              >
+                <button onClick={() => setSelectedId(r.id)} className="w-full text-left">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-block h-2.5 w-2.5 rounded-full ${labelFor[r.verified].dot}`} />
+                      <h4 className="font-semibold text-slate-700">{r.route_name}</h4>
+                    </div>
+                    <span className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${labelFor[r.verified].badge}`}>
+                      {labelFor[r.verified].title}
+                    </span>
+                  </div>
+
+                  <p className="mt-1 text-[13px] leading-snug text-slate-600">
+                    {r.description}
+                  </p>
+
+                  <div className="mt-2 grid grid-cols-2 gap-x-4 text-xs text-slate-500">
+                    <div>🕒 {formatTime(r.timestamp)}</div>
+                    <div>👍 {r.likes} &nbsp; 👎 {r.dislikes}</div>
+                  </div>
+
+                  <div className="mt-2 text-[11px] text-slate-400">
+                    Lat: {r.lattidude}&nbsp;&nbsp;Lng: {r.longidute}
+                  </div>
+                </button>
+              </li>
+            );
+          })}
+          {list.length === 0 && (
+            <li className="rounded-2xl border border-slate-100 bg-white/80 p-3 text-sm text-slate-500">
+              Brak raportów w tej kategorii.
+            </li>
+          )}
+        </ul>
+      </div>
+    );
+  };
 
   return (
     <div className="relative min-h-screen bg-[#f5fbff]">
@@ -109,16 +182,17 @@ export default function MapPage() {
             {visibleReports.map((r) => {
               const pos: LatLngExpression = [r.lattidude, r.longidute];
               const { stroke, fill } = statusColor(r.verified);
+              const isSelected = selectedReport?.id === r.id;
 
               return (
                 <CircleMarker
                   key={r.id}
                   center={pos}
                   radius={8}
-                  pathOptions={{ color: stroke, weight: 2, fillColor: fill, fillOpacity: 0.8 }}
+                  pathOptions={{ color: stroke, weight: 2, fillColor: fill, fillOpacity: 0.85 }}
                   eventHandlers={{ click: () => setSelectedId(r.id) }}
                 >
-                  {(selectedReport && selectedReport.id === r.id) && (
+                  {isSelected && (
                     <Popup position={pos}>
                       <div className="text-sm max-w-xs">
                         <h2 className="font-semibold mb-1">{r.route_name}</h2>
@@ -139,12 +213,12 @@ export default function MapPage() {
         </div>
       </div>
 
-      {/* DELIKATNY GRADIENT */}
+      {/* GRADIENT */}
       <div className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-br from-white/60 via-white/30 to-transparent" />
 
-      {/* PANEL UI */}
+      {/* PANEL */}
       <div className="relative z-20 pointer-events-none flex min-h-screen flex-col gap-5 px-4 pb-10 pt-8 sm:px-6 lg:flex-row lg:items-start lg:gap-8">
-        <div className="pointer-events-auto flex w-full flex-col gap-4 rounded-[28px] bg-white/85 p-4 shadow-lg backdrop-blur md:max-w-sm max-h-screen overflow-y-scroll">
+        <div className="pointer-events-auto flex w-full flex-col gap-4 rounded-[28px] bg-white/85 p-4 shadow-lg backdrop-blur md:max-w-sm max-h-screen overflow-y-auto">
           <div className="flex items-center justify-between">
             <Link
               href="/dashboard"
@@ -198,19 +272,24 @@ export default function MapPage() {
               </div>
             </div>
 
+            {/* BOXy + przypięta pod każdym z nich lista tej kategorii */}
             <div className="mt-4 grid gap-3">
-              <div className="flex items-center justify-between rounded-2xl border border-white bg-white/80 px-4 py-2 text-sm">
-                <span className="font-semibold text-slate-600">Potwierdzone</span>
-                <span className="text-lg font-semibold text-rose-600">{counters.severe}</span>
-              </div>
-              <div className="flex items-center justify-between rounded-2xl border border-white bg-white/80 px-4 py-2 text-sm">
-                <span className="font-semibold text-slate-600">Oczekuje na potwierdzenie</span>
-                <span className="text-lg font-semibold text-amber-500">{counters.medium}</span>
-              </div>
-              <div className="flex items-center justify-between rounded-2xl border border-white bg-white/80 px-4 py-2 text-sm">
-                <span className="font-semibold text-slate-600">Odrzucone</span>
-                <span className="text-lg font-semibold text-emerald-500">{counters.healthy}</span>
-              </div>
+              {boxes.map(({ key, count, ring, ringOff }) => (
+                <div key={key}>
+                  <button
+                    onClick={() => setActiveCategory(prev => (prev === key ? null : key))}
+                    className={`flex w-full items-center justify-between rounded-2xl border bg-white/80 px-4 py-2 text-left transition ${
+                      activeCategory === key ? ring : ringOff
+                    }`}
+                  >
+                    <span className="font-semibold text-slate-600">{labelFor[key].title}</span>
+                    <span className={`text-lg font-semibold ${labelFor[key].tone}`}>{count}</span>
+                  </button>
+
+                  {/* TYLKO pod aktywnym boxem wyświetlamy listę */}
+                  {activeCategory === key && <CategoryList cat={key} />}
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -218,6 +297,3 @@ export default function MapPage() {
     </div>
   );
 }
-
-// mapa (bez SSR)
-const MapWithNoSSR = dynamic(() => import("@/app/components/Map"), { ssr: false });
