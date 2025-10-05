@@ -300,16 +300,6 @@ export default function ReportPage() {
                   className="mt-3 w-full rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 outline-none"
                 />
               </label>
-              <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-                <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  <LuCamera className="text-sky-300" />
-                  Dodaj materiał (opcjonalnie)
-                </span>
-                <p>Załącz zdjęcie lub krótki film, aby zweryfikować zgłoszenie. Pliki do 20 MB.</p>
-                <button type="button" className="self-start rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600 transition hover:border-sky-300 hover:text-slate-900">
-                  Wybierz plik
-                </button>
-              </div>
             </div>
 
             <div className="rounded-[32px] border border-slate-100 bg-gradient-to-r from-sky-500 to-emerald-400 p-[3px]">
