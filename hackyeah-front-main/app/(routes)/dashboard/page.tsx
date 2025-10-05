@@ -239,11 +239,12 @@ export default function DashboardPage() {
         <section className="rounded-[32px] border border-slate-100 bg-white p-8 shadow-sm">
           <div className="grid gap-4 md:grid-cols-[1.3fr_1fr]">
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Sprawdź połączenie</h3>
-              <form className="space-y-4 text-sm" onSubmit={(e) => e.preventDefault()}>
+              <h3 className="text-lg font-semibold">Sprawdz polaczenie</h3>
+              <form className="space-y-4 text-sm" method="GET" action="/map">
                 <div className="flex items-center gap-4 rounded-3xl border border-slate-200 bg-slate-50 px-5 py-3">
                   <LuNavigation className="text-slate-400" />
                   <input
+                    name="from"
                     type="text"
                     placeholder="np. Nowa Huta Centrum, Rynek Główny..."
                     className="w-full bg-transparent text-slate-700 outline-none"
@@ -252,6 +253,7 @@ export default function DashboardPage() {
                 <div className="flex items-center gap-4 rounded-3xl border border-slate-200 bg-slate-50 px-5 py-3">
                   <LuNavigation className="text-slate-400" />
                   <input
+                    name="to"
                     type="text"
                     placeholder="np. Bronowice, Dworzec Główny..."
                     className="w-full bg-transparent text-slate-700 outline-none"

@@ -3,14 +3,14 @@
 import { MapContainer, TileLayer } from "react-leaflet"
 import "leaflet/dist/leaflet.js"
 import "leaflet/dist/leaflet.css"
-import {ReactElement, useLayoutEffect, useState} from "react"
+import {ReactNode, useLayoutEffect, useState} from "react"
 import Spinner from "@/app/components/Spinner"
 
 const MAP_URL = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
 const MAP_ATTRIBUTION = '&copy; Transit, <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
 
 type Props = {
-    children?: ReactElement | string
+    children?: ReactNode | string
 }
 
 const Map = ({children}: Props) => {
