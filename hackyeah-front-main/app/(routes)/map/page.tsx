@@ -22,11 +22,14 @@ const MapWithNoSSR = dynamic(() => import("@/app/components/Map"), {
 });
 
 function formatTimestampToHHMM(timestamp: number): string {
-  const date = new Date(timestamp);
-  const hours = date.getHours().toString().padStart(2, '0');
-  const minutes = date.getMinutes().toString().padStart(2, '0');
-  return `${hours}:${minutes}`;
+  const date = new Date(timestamp * 1000);  // Convert to milliseconds if needed
+  return date.toLocaleTimeString('pl-PL', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,  // 24-hour format
+  });
 }
+
 
 
 import { LatLngExpression } from "leaflet";
@@ -69,6 +72,7 @@ interface TransitApiResponse {
   delay_s: number;
   predicted_delay_s: number;
   steps?: Step[];
+  departure_time: number;
 }
 
 interface Report {

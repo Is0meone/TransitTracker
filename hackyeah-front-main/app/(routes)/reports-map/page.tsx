@@ -193,8 +193,8 @@ export default function MapPage() {
                   eventHandlers={{ click: () => setSelectedId(r.id) }}
                 >
                   {isSelected && (
-                    <Popup position={pos}>
-                      <div className="text-sm max-w-xs">
+                    <Popup position={pos} className="min-w-64">
+                      <div className="text-sm max-w-md">
                         <h2 className="font-semibold mb-1">{r.route_name}</h2>
                         <p className="mb-2 leading-snug">{r.description}</p>
                         <div className="grid grid-cols-2 gap-x-4 gap-y-1">
