@@ -55,32 +55,11 @@ interface Step {
   transit?: TransitInfo;
 }
 
-interface Route {
-  overview_path: LatLng[];
-  start_address: string;
-  end_address: string;
-  start_location: Location;
-  end_location: Location;
-  departure_time: {
-    text: string;
-    time_zone: string;
-    value: number;
-  };
-  arrival_time: {
-    text: string;
-    time_zone: string;
-    value: number;
-  };
-  distance_m: number;
-  distance_text: string;
-  duration_s: number;
-  duration_text: string;
-  steps: Step[];
-}
-
 interface TransitApiResponse {
   status: string;
-  route?: Route;
+  delay_s: number;
+  predicted_delay_s: number;
+  steps?: Step[];
 }
 
 // Dane do legendy
@@ -99,12 +78,14 @@ export default function MapPage() {
   const to = searchParams.get('to')
 
   const [steps, setSteps] = useState<Step[]>([]);
+  const [routeData, setRouteData] = useState<TransitApiResponse | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
   if (from && to) {
+    console.log("Fetching route from", from, "to", to);
     setLoading(true);
-    fetch('/transit', {
+    fetch('http://217.153.167.103:8002/trip', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -127,9 +108,12 @@ export default function MapPage() {
         return res.json() as Promise<TransitApiResponse>;
       })
       .then((data) => {
+        console.log("Route data:", data);
         if (!data) return; // Already handled error above
-        if (data.status === "OK" && data.route && data.route.steps) {
-          setSteps(data.route.steps);
+        if (data.steps) {
+          console.log("Parsed steps:", data.steps);
+          setSteps(data.steps);
+          setRouteData(data);
         } else {
           setSteps([]);
         }
@@ -177,10 +161,10 @@ export default function MapPage() {
                   color={color}
                   weight={5}
                   opacity={0.7}
-                />
+                >
 
                 {/* Show label only for transit steps with vehicle_type BUS or TRAM */}
-                {step.travel_mode === "TRANSIT" && step.transit && (
+                {step.travel_mode == "TRANSIT" && step.transit && (
                   <Tooltip
                     direction="center"
                     permanent
@@ -199,17 +183,18 @@ export default function MapPage() {
                         fontWeight: "bold",
                         padding: "2px 6px",
                         borderRadius: 4,
-                        backgroundColor: "rgba(255, 255, 255, 0.8)",
+                        backgroundColor: "rgba(255, 255, 255, 0.5)",
                         border: `2px solid ${color}`,
                         whiteSpace: "nowrap",
-                        fontSize: "0.9rem",
+                        fontSize: "0.6rem",
                         userSelect: "none",
                       }}
                     >
-                      {step.transit.line_name}
+                      {step.instruction_text} {"["}{step.transit.line_name ? step.transit.line_name : step.transit.line_short_name}{"]"}
                     </div>
                   </Tooltip>
                 )}
+                </Polyline>
               </React.Fragment>
             );
           })}
@@ -222,9 +207,9 @@ export default function MapPage() {
       <div className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-br from-white/60 via-white/30 to-transparent" />
 
       {/* WARSTWA UI — wrapper nie łapie klików, tylko same panele */}
-      <div className="relative z-20 pointer-events-none flex min-h-screen flex-col gap-5 px-4 pb-10 pt-8 sm:px-6 lg:flex-row lg:items-start lg:gap-8">
+      <div className="relative z-20 pointer-events-none flex min-h-screen flex-col gap-5 px-4 pb-4 pt-4 sm:px-6 lg:flex-row lg:items-start lg:gap-8">
         {/* Lewy panel (klikalny) */}
-        <div className="pointer-events-auto flex w-full flex-col gap-4 rounded-[28px] bg-white/85 p-4 shadow-lg backdrop-blur md:max-w-md">
+        <div className="pointer-events-auto flex w-full flex-col gap-4 rounded-[28px] bg-white/85 p-4 shadow-lg backdrop-blur md:max-w-md max-h-screen">
           <div className="flex items-center justify-between">
             <Link
               href="/dashboard"
@@ -243,52 +228,55 @@ export default function MapPage() {
             </div>
           </div>
 
-          <div className="rounded-3xl border border-slate-100 bg-slate-50 px-4 py-3">
-            <h1 className="text-base font-semibold text-slate-800">Mapa utrudnień</h1>
-            <div className="mt-3 flex items-center gap-2 rounded-3xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600">
-              <FaSearch className="text-slate-400" />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                type="text"
-                placeholder="Szukaj linii, przystanków..."
-                className="w-full bg-transparent outline-none"
-              />
-              {search ? (
-                <button
-                  className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-500"
-                  onClick={() => setSearch("")}
-                >
-                  Reset
-                </button>
-              ) : null}
-            </div>
+
+          <div className="rounded-3xl border border-slate-100 bg-slate-50 p-4 text-sm text-slate-600">
+            {
+              steps.length === 0 && !loading && (<p>Brak trasy do wyswietlenia. Wyszukaj polaczenie w wyszukiwarce.</p>)
+            }
+            {
+              loading && (<p>Ladowanie trasy...</p>)
+            }
+            { steps.length > 0 && !loading && (
+              <div className="space-y-2">
+                <h2 className="text-base font-semibold text-slate-800">Szczegóły trasy</h2>
+                <p className="text-xs text-slate-500">Liczba kroków: {steps.length}</p>
+                <div className="max-h-48 overflow-y-auto">
+                  {steps.map((step, idx) => (
+                    <div key={idx} className="mb-3 last:mb-0">
+                      <p className="text-sm font-semibold text-slate-700">Krok {idx + 1}:</p>
+                      <p className="text-sm" dangerouslySetInnerHTML={{ __html: step.instruction_html }} />
+                      <p className="text-xs text-slate-500">
+                        {step.distance_text}, {step.duration_text}{" "}
+                        {step.travel_mode === "TRANSIT" && step.transit ? `- ${step.transit.vehicle_type} ${step.transit.line_name ? step.transit.line_name : step.transit.line_short_name} w kierunku ${step.transit.headsign}` : ""}
+                      </p>
+                    </div>
+                  ))}
+              </div>
+              </div>
+            )}
           </div>
 
           <div className="rounded-3xl border border-slate-100 bg-slate-50 p-4 text-sm text-slate-600">
 
-            <div className="mt-4 space-y-2 text-xs text-slate-500">
-              <div className="flex items-center gap-3">
-                <FiAlertTriangle className="text-rose-500" /> Alarmy
-              </div>
-              <div className="flex items-center gap-3">
-                <LuClock3 className="text-amber-500" /> Opóźnienia
-              </div>
-              <div className="flex items-center gap-3">
-                <LuCheck className="text-emerald-500" /> Na czas
-              </div>
-            </div>
-
-            <div className="mt-4 grid gap-3">
-              {legend.map((item) => (
-                <div
-                  key={item.label}
-                  className="flex items-center justify-between rounded-2xl border border-white bg-white/80 px-4 py-2 text-sm"
-                >
-                  <span className="font-semibold text-slate-600">{item.label}</span>
-                  <span className={`text-lg font-semibold ${item.tone}`}>{item.value}</span>
-                </div>
-              ))}
+            <div className="space-y-2 text-xs text-slate-500">
+              {
+                routeData && routeData.delay_s > 0 && (
+                  <div>
+                    <div className="flex items-center gap-3">
+                      <LuClock3 className="text-amber-500" /> Opóźnienia
+                    </div>
+                    <p>{routeData.delay_s} sekund</p>
+                    <p>Zazwyczaj na tej trasie występuje opóźnienie ok. {routeData.predicted_delay_s} sekund</p>
+                  </div>
+                )
+              }
+              {
+                routeData && routeData.delay_s === 0 && (
+                  <div className="flex items-center gap-3">
+                    <LuCheck className="text-emerald-500" /> Na czas
+                  </div>
+                )
+              }
             </div>
           </div>
         </div>

@@ -43,7 +43,7 @@ export default function MapPage() {
   // Fetch all reports on mount
   useEffect(() => {
     setLoadingReports(true);
-    fetch("/reports")
+    fetch("http://217.153.167.103:8002/reports")
       .then(async (res) => {
         if (!res.ok) {
           const err = await res.text();
@@ -66,7 +66,7 @@ export default function MapPage() {
   // Fetch detailed report when selectedReport changes to just id
   const fetchReportDetails = async (id: number) => {
     try {
-      const res = await fetch(`/reports/id/${id}`);
+      const res = await fetch(`http://217.153.167.103:8002/reports/id/${id}`);
       if (!res.ok) {
         const err = await res.text();
         console.error("Error fetching report details:", res.status, err);
@@ -138,7 +138,7 @@ export default function MapPage() {
       {/* WARSTWA UI — wrapper nie łapie klików, tylko same panele */}
       <div className="relative z-20 pointer-events-none flex min-h-screen flex-col gap-5 px-4 pb-10 pt-8 sm:px-6 lg:flex-row lg:items-start lg:gap-8">
         {/* Lewy panel (klikalny) */}
-        <div className="pointer-events-auto flex w-full flex-col gap-4 rounded-[28px] bg-white/85 p-4 shadow-lg backdrop-blur md:max-w-md">
+        <div className="pointer-events-auto flex w-full flex-col gap-4 rounded-[28px] bg-white/85 p-4 shadow-lg backdrop-blur md:max-w-sm max-h-screen overflow-y-scroll">
           <div className="flex items-center justify-between">
             <Link
               href="/dashboard"
