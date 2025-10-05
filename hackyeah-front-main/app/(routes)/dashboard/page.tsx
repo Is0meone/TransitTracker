@@ -15,8 +15,8 @@ import { FiAlertTriangle } from "react-icons/fi";
 const REPORTS_ENDPOINT = "http://217.153.167.103:8002/reports/";
 
 const statusStyles: Record<string, string> = {
-  positive: "bg-emerald-100 text-emerald-600",
-  negative: "bg-rose-100 text-rose-600",
+  positive: "bg-rose-100 text-rose-600",
+  negative: "bg-emerald-100 text-emerald-600",
   unverified: "bg-amber-100 text-amber-600",
 };
 
@@ -226,7 +226,7 @@ export default function DashboardPage() {
                 Zgłoś problem
               </Link>
               <Link
-                href="/map"
+                href="/reports-map"
                 className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2 text-sm font-semibold text-slate-900"
               >
                 <LuMap />
@@ -290,7 +290,7 @@ export default function DashboardPage() {
                   Zobacz utrudnienia
                 </p>
                 <Link
-                  href="/map"
+                  href="/reports-map"
                   className="mt-3 inline-flex items-center gap-2 text-xs font-semibold text-sky-600"
                 >
                   Otwórz
