@@ -8,6 +8,9 @@ import { FaSearch } from "react-icons/fa";
 import { LuCheck, LuClock3 } from "react-icons/lu";
 import { FiAlertTriangle } from "react-icons/fi";
 import React from "react";
+import { PiHeadCircuitThin } from "react-icons/pi";
+import { CgMediaLive } from "react-icons/cg";
+
 
 import { useSearchParams } from 'next/navigation'
 
@@ -265,8 +268,18 @@ export default function MapPage() {
                     <div className="flex items-center gap-3">
                       <LuClock3 className="text-amber-500" /> Opóźnienia
                     </div>
-                    <p>{routeData.delay_s} sekund</p>
-                    <p>Zazwyczaj na tej trasie występuje opóźnienie ok. {routeData.predicted_delay_s} sekund</p>
+                    <div className="pl-2 "> 
+                      <div className="flex flex-row gap-2 items-center">
+                        <CgMediaLive />
+                        <p>{routeData.delay_s} sekund</p>
+                      </div>
+                      <div className="flex flex-row gap-2 items-center">
+                        <PiHeadCircuitThin />
+                        <p>Zazwyczaj na tej trasie występuje opóźnienie ok. {routeData.predicted_delay_s} sekund</p>
+                      </div>
+                      
+                      
+                    </div>
                   </div>
                 )
               }
